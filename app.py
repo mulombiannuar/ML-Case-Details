@@ -7,8 +7,15 @@ from case_details import *
 st.set_page_config(page_title="Interactive Case Overview", page_icon=":bar_chart:")
 st.title("Interactive Case Overview")
 
+st.subheader("Heads")
+heads = get_heads()
+df = pd.DataFrame(heads)  
+st.dataframe(data=df, width=1000, height=500) 
+
+st.divider()
+    
 st.subheader("Head Stations")
-head_id = "6"
+head_id = "7"
 stations = get_head_stations(head_id)
 df = pd.DataFrame(stations)  
 st.dataframe(data=df, width=1000, height=500) 

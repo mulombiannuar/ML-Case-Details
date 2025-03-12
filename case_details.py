@@ -1,6 +1,20 @@
 from database import execute_query
 
 # function to get head stations
+def get_heads():
+    excluded_ids = (9, 10, 11, 12)
+    query = """
+        SELECT head_id, head_name 
+        FROM head 
+        WHERE head_id NOT IN (%s, %s, %s, %s)
+        ORDER BY head_id
+    """
+    results = execute_query(query, excluded_ids)
+
+    return [{"head_id": row[0], "head_name": row[1]} for row in results]
+
+
+# function to get head stations
 def get_head_stations(head_id: str):
     query = """
         SELECT unit_id, unit_name 
