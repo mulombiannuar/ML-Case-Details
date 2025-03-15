@@ -1,50 +1,139 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import time
+from datetime import datetime
 from case_details import *
 
-st.set_page_config(page_title="Interactive Case Overview", page_icon=":bar_chart:")
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+st.set_page_config(page_title="Interactive Case Overview", page_icon=":bar_chart:", layout='wide')
 st.title("Interactive Case Overview")
 
-st.subheader("Heads")
-heads = get_heads()
-df = pd.DataFrame(heads)  
-st.dataframe(data=df, width=1000, height=500) 
+# Generate years from 1926 to the current year
+years = list(range(1926, datetime.now().year + 1))
 
-st.divider()
-    
-st.subheader("Head Stations")
-head_id = "7"
-stations = get_head_stations(head_id)
-df = pd.DataFrame(stations)  
-st.dataframe(data=df, width=1000, height=500) 
+# Fetch heads and create a mapping
+heads_data = get_heads()
+head_mapping = {head["head_name"]: head["head_id"] for head in heads_data}
+head_options = list(head_mapping.keys())
 
-st.divider()
+# Initialize session state to store search results
+if "search_results" not in st.session_state:
+    st.session_state.search_results = None
 
-st.subheader("Case Details")
-case_id = "1697996"
-case_details = get_case_details_by_id(case_id)
-st.write(case_details)
+with st.sidebar:
+    st.subheader("Search Case Details")
 
-st.divider()
+    # First selectbox for Court Heads
+    head_name = st.selectbox(
+        label="Court Heads",
+        options=head_options,
+        index=None,
+        placeholder="Select court head...",
+    )
 
-st.subheader("Case Parties")
-case_parties = get_case_parties(case_id)
-df = pd.DataFrame(case_parties)
-st.dataframe(data=df, width=1000)
+    if head_name:
+        head_id = head_mapping.get(head_name)  # Get head_id
 
-st.divider()
+        # Fetch stations based on selected head_id
+        stations_data = get_head_stations(head_id)
+        station_mapping = {station["unit_name"]: station["unit_id"] for station in stations_data}
+        station_options = list(station_mapping.keys())
 
-st.subheader("Case Activities")
-case_activities = get_case_activities(case_id)
-st.write(case_activities)
-# df = pd.DataFrame(case_activities)
-# st.dataframe(data=df, width=1000)
+        # Second selectbox for Head Stations
+        unit_name = st.selectbox(
+            label="Head Stations",
+            options=station_options,
+            index=None,
+            placeholder="Select head station...",
+        )
 
-st.divider()
+        if unit_name:
+            unit_id = station_mapping.get(unit_name)
 
-activity_id = 16841483
-st.subheader('Activity Outcome')
-activity_outcome = get_activity_outcome(activity_id)
-st.write(activity_outcome)
+            # Fetch divisions based on selected unit_id
+            divisions_data = get_unit_divisions(unit_id)
+            division_mapping = {division["division_name"]: division["unit_division_id"] for division in divisions_data}
+            division_options = list(division_mapping.keys())
+
+            # Third selectbox for Unit Divisions
+            division_name = st.selectbox(
+                label="Unit Divisions",
+                options=division_options,
+                index=None,
+                placeholder="Select unit division...",
+            )
+
+            if division_name:
+                unit_division_id = division_mapping.get(division_name)
+
+                # Fetch unit division case categories
+                case_categories_data = get_unit_division_case_categories(unit_division_id)
+                case_categories_mapping = {category["category_name"]: category["category_id"] for category in case_categories_data}
+                case_categories_options = list(case_categories_mapping.keys())
+
+                # Selectbox for Case Categories
+                category_name = st.selectbox(
+                    label="Case Categories",
+                    options=case_categories_options,
+                    index=None,
+                    placeholder="Select case category...",
+                )
+
+                # Input for Case Number
+                case_number = st.text_input(
+                    label="Case Number", 
+                    placeholder="Enter case number e.g E103",
+                )
+
+                # Selectbox for Case Year
+                case_year = st.selectbox(
+                    label="Select Year",
+                    options=years,
+                    index=len(years) - 1,
+                )
+
+    # Button to search case (remains in sidebar)
+    if st.button("Search Case"):
+        with st.spinner("Searching case...."):
+            if case_number and category_name and division_name and case_year:
+                category_id = case_categories_mapping.get(category_name)
+
+                # Call the search function
+                case_details_search = search_case_number(
+                    case_number=case_number,
+                    category_id=category_id,
+                    unit_division_id=unit_division_id,
+                    case_year=case_year
+                )
+
+                # Store search results in session state
+                st.session_state.search_results = case_details_search
+
+            else:
+                st.error("Please complete all required fields before searching.")
+
+# Display search results in the main area
+if st.session_state.search_results is not None:
+    case_details_search = st.session_state.search_results
+
+    if case_details_search:
+        st.subheader("Search Results")
+        st.success(f"Found {len(case_details_search)} case(s) matching your criteria.")
+
+        # Convert data to DataFrame
+        case_df = pd.DataFrame(case_details_search)
+
+        # Add "View Case Details" link
+        case_df["View Details"] = case_df["case_id"].apply(
+            lambda case_id: f"[View Case Details](#case-{case_id})"
+        )
+
+        # Select columns to display
+        columns_to_display = ["case_id", "case_year", "case_code", "case_index", "number_on_file", "citation", "case_status_desc", "View Details"]
+        st.dataframe(case_df[columns_to_display])
+
+    else:
+        st.warning("No matching case found. Please check your inputs.")

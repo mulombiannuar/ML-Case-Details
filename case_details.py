@@ -206,4 +206,69 @@ def get_activity_outcome(case_activity_id: int):
     
     return results if results else []
 
+# function to get unit division case categories
+def get_unit_division_case_categories(unit_division_id: int):
+   
+    query = """
+        SELECT case_categories.category_id, 
+               CONCAT(case_categories.code, ' - ', case_categories.name) AS category_name
+        FROM unit_div_case_type
+        INNER JOIN case_types ON case_types.case_type_id = unit_div_case_type.case_type_id_fk
+        INNER JOIN case_categories ON case_categories.category_id = case_types.case_category_id_fk
+        WHERE unit_div_case_type.unit_division_id_fk = %s
+        AND case_categories.merge_to IS NULL
+        GROUP BY case_categories.category_id, category_name
+        ORDER BY case_categories.category_id ASC
+    """
+
+    results = execute_query(query, (unit_division_id,))
+
+    return [{"category_id": row[0], "category_name": row[1]} for row in results]
+
+
+# search for a case based on the given case parameters
+def search_case_number(case_number, category_id, unit_division_id, case_year):
+    query = """
+         SELECT 
+            cases.case_id, cases.case_year, cases.case_code, cases.case_index, cases.number_on_file, 
+            cases.citation, cases.filing_date, case_status.case_status_desc, cases.manual_number, cases.version, 
+            cases.case_status_id_fk, unit.unit_name, unit.head_id_fk, case_types.case_type_id, 
+            unit_division.unit_division_id, case_categories.category_id
+        FROM cases 
+        LEFT JOIN case_activities ON case_activities.case_id_fk = cases.case_id 
+        INNER JOIN case_status ON case_status.case_status_id = cases.case_status_id_fk 
+        INNER JOIN unit_div_case_type ON cases.unit_div_case_type_id_fk = unit_div_case_type.unit_div_case_type_id 
+        INNER JOIN case_types ON unit_div_case_type.case_type_id_fk = case_types.case_type_id 
+        INNER JOIN case_categories ON case_types.case_category_id_fk = case_categories.category_id 
+        INNER JOIN unit_division ON unit_div_case_type.unit_division_id_fk = unit_division.unit_division_id
+        INNER JOIN unit ON unit.unit_id = unit_division.unit_id_fk 
+        WHERE case_activities.activity_deleted = 0
+        AND unit_division.unit_division_id = %s
+        AND case_categories.category_id = %s
+        AND cases.case_index = %s
+        AND cases.case_year = %s
+        AND cases.done = 1
+        ORDER BY cases.filing_date DESC
+    """
+
+    # Corrected query execution using named parameters
+    
+    results = execute_query(query, (unit_division_id, category_id, case_number, case_year)) 
+    
+    return [
+        {
+            "case_id": row[0], 
+            "case_year": row[1], 
+            "case_code": row[2], 
+            "case_index": row[3],
+            "number_on_file": row[4],
+            "citation": row[5],
+            "filing_date": row[6],
+            "case_status_desc": row[7],
+        } 
+        for row in results
+    ]
+
+
+
 
