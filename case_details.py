@@ -52,6 +52,11 @@ def get_unit_divisions(unit_id: str):
     return [{"unit_division_id": row[0], "division_name": row[1]} for row in results]
 
 
+
+# function to getcase details
+def get_case_details(case_id: int):
+    return {"case_id": case_id, "details": f"Details for Case ID {case_id}"}
+
 # function to getcase details case id
 def get_case_details_by_id(case_id: int):
     query = """
@@ -229,11 +234,9 @@ def get_unit_division_case_categories(unit_division_id: int):
 # search for a case based on the given case parameters
 def search_case_number(case_number, category_id, unit_division_id, case_year):
     query = """
-         SELECT 
+        SELECT 
             cases.case_id, cases.case_year, cases.case_code, cases.case_index, cases.number_on_file, 
-            cases.citation, cases.filing_date, case_status.case_status_desc, cases.manual_number, cases.version, 
-            cases.case_status_id_fk, unit.unit_name, unit.head_id_fk, case_types.case_type_id, 
-            unit_division.unit_division_id, case_categories.category_id
+            cases.citation, cases.filing_date, case_status.case_status_desc
         FROM cases 
         LEFT JOIN case_activities ON case_activities.case_id_fk = cases.case_id 
         INNER JOIN case_status ON case_status.case_status_id = cases.case_status_id_fk 
@@ -248,6 +251,9 @@ def search_case_number(case_number, category_id, unit_division_id, case_year):
         AND cases.case_index = %s
         AND cases.case_year = %s
         AND cases.done = 1
+        GROUP BY 
+            cases.case_id, cases.case_year, cases.case_code, cases.case_index, cases.number_on_file, 
+            cases.citation, cases.filing_date, case_status.case_status_desc
         ORDER BY cases.filing_date DESC
     """
 

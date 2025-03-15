@@ -116,7 +116,7 @@ with st.sidebar:
                 st.error("Please complete all required fields before searching.")
 
 # Display search results in the main area
-if st.session_state.search_results is not None:
+if "search_results" in st.session_state and st.session_state.search_results is not None:
     case_details_search = st.session_state.search_results
 
     if case_details_search:
@@ -126,14 +126,21 @@ if st.session_state.search_results is not None:
         # Convert data to DataFrame
         case_df = pd.DataFrame(case_details_search)
 
-        # Add "View Case Details" link
-        case_df["View Details"] = case_df["case_id"].apply(
-            lambda case_id: f"[View Case Details](#case-{case_id})"
-        )
-
         # Select columns to display
-        columns_to_display = ["case_id", "case_year", "case_code", "case_index", "number_on_file", "citation", "case_status_desc", "View Details"]
-        st.dataframe(case_df[columns_to_display])
+        columns_to_display = ["case_id", "case_year", "case_code", "case_index", "number_on_file", "citation", "case_status_desc", "filing_date"]
+        st.dataframe(case_df[columns_to_display], use_container_width=True)
+
+        # Create a dictionary mapping number_on_file to case_id
+        case_mapping = dict(zip(case_df["number_on_file"], case_df["case_id"]))
+
+        # Select box for choosing a case
+        selected_number = st.selectbox("Select a Case", options=list(case_mapping.keys()))
+
+        # Button to fetch case details
+        if st.button("Get Case Details"):
+            selected_case_id = case_mapping[selected_number]
+            case_details = get_case_details(selected_case_id)
+            st.write(case_details)
 
     else:
         st.warning("No matching case found. Please check your inputs.")
