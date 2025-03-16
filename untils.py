@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from case_details import get_case_details_by_id, get_case_parties, get_case_activities
+from case_details import get_case_details_by_id, get_case_parties, get_case_activities, get_activity_court_documents
 
 # generate mapping
 def generate_mapping(data_list, key_name, value_name):
@@ -42,7 +42,16 @@ def display_case_activities(case_activities):
         st.dataframe(case_df, use_container_width=True)  
     else:
         st.warning("No case activities available.")
-        
+
+
+# display case activities
+def display_court_documents(court_documents):
+    if court_documents:
+        case_df = pd.DataFrame(court_documents)
+        st.dataframe(case_df, use_container_width=True)  
+    else:
+        st.warning("No court documents available.")       
+
 
 # function to create case details tabs
 def create_case_tabs(case_id: int):
@@ -54,6 +63,7 @@ def create_case_tabs(case_id: int):
     case_details = get_case_details_by_id(case_id)
     case_parties = get_case_parties(case_id)
     case_activities = get_case_activities(case_id)
+    court_documents = get_activity_court_documents(case_id)
 
     with tab_summary:
         st.subheader("Case Summary")
@@ -69,7 +79,7 @@ def create_case_tabs(case_id: int):
     
     with tab_decisions:
         st.subheader("Court Decisions")
-        # Add logic to display court decisions
+        display_court_documents(court_documents)
     
     with tab_documents:
         st.subheader("Case Documents")

@@ -249,7 +249,7 @@ def get_unit_division_case_categories(unit_division_id: int):
 
     results = execute_query(query, (unit_division_id,))
 
-    return [{"category_id": row[0], "category_name": row[1]} for row in results]
+    return [{"category_id": row[0], "category_name": row[1]} for row in results] if results else []
 
 
 # search for a case based on the given case parameters
@@ -294,7 +294,90 @@ def search_case_number(case_number, category_id, unit_division_id, case_year):
             "case_status_desc": row[7],
         } 
         for row in results
-    ]
+    ] if results else []
+
+
+# function to get court orders
+def get_activity_court_documents(case_id: int):
+
+    query = """
+        SELECT 
+            file_types_children.description, files.date_added, court_actions.court_actions_name, case_activities.activity_date,
+            demo_user_profiles.prefered_name, files.pushed_to_mayan, files.file_id, files.date_pushed_to_mayan, 
+            draft_order_by, signed_by, amended_by, file_types_children_bundles.file_type_id_fk AS file_type_id, 
+            paid_for, files.deleted, ftp_pushed, files.name, files.signed_file, files.file_types_children_bundles_id_fk,
+            transcript_details.status AS proceeding_status, files.date_pushed_to_mayan_signed, files.signed_date, 
+            dup_owner.upro_uacc_fk AS file_owner_id, dup_owner.prefered_name AS file_owner_name, files.party_id, 
+            files.file_owner_id_fk, published, published_date, files.document_text, file_types.lawenforcement_doc, 
+            pushed_to_mayan_signed, date_pushed_to_mayan_signed, files.file_types_children_bundles_id_fk, 
+            files.activity_id, files.files_batch_id, file_types_children_id, signed_order, 
+            dup_digitizer.prefered_name AS digitizer_name
+        FROM files 
+        LEFT JOIN files_batch ON files.files_batch_id = files_batch.files_batch_id
+        INNER JOIN case_activities ON files.activity_id = case_activities.case_activity_id
+        INNER JOIN cases ON cases.case_id = case_activities.case_id_fk
+        INNER JOIN file_types_children_bundles ON file_types_children_bundles.file_types_children_bundles_id = files.file_types_children_bundles_id_fk
+        INNER JOIN file_types_children ON file_types_children.file_types_children_id = file_types_children_bundles.file_types_children_id_fk
+        INNER JOIN file_types ON file_types.file_type_id = file_types_children_bundles.file_type_id_fk
+        INNER JOIN court_processes ON case_activities.court_processes_id_fk = court_processes.court_processes_id
+        INNER JOIN court_actions ON court_processes.court_action_id_fk = court_actions.court_actions_id
+        INNER JOIN demo_user_profiles ON demo_user_profiles.upro_uacc_fk = files.party_id
+        LEFT JOIN demo_user_profiles dup_owner ON dup_owner.upro_uacc_fk = files.file_owner_id_fk
+        LEFT JOIN demo_user_profiles dup_digitizer ON dup_digitizer.upro_uacc_fk = files.digitized_by
+        LEFT JOIN transcript_details ON files.file_id = transcript_details.files_id_fk
+        WHERE cases.case_id = %s 
+        AND signed_by IS NOT NULL
+        AND (pushed_to_mayan IN (1, 3) 
+             OR files.document_text IS NOT NULL 
+             OR amended_order IS NOT NULL 
+             OR signed_order IS NOT NULL) 
+        ORDER BY file_id DESC;
+    """
+
+    results = execute_query(query, (case_id,))
+
+    return [
+        {
+             "document_text": row[27],
+            "prefered_name": row[4],
+            "court_actions_name": row[2],
+            "activity_date": row[3],
+            #"date_added": row[1],
+            #"digitizer_name": row[36],
+            #"file_id": row[6],
+            "signed_by": row[9],
+            "signed_date": row[20],
+            "signed_file": row[16],
+            #"file_owner_name": row[22],
+            #"file_owner_id": row[21],
+            # "description": row[0],
+            # "pushed_to_mayan": row[5],
+            # "date_pushed_to_mayan": row[7],
+            # "draft_order_by": row[8],
+            # "amended_by": row[10],
+            # "file_type_id": row[11],
+            # "paid_for": row[12],
+            # "deleted": row[13],
+            # "ftp_pushed": row[14],
+            # "name": row[15],
+            # "file_types_children_bundles_id_fk": row[17],
+            # "proceeding_status": row[18],
+            # "date_pushed_to_mayan_signed": row[19],
+            # "party_id": row[23],
+            # "file_owner_id_fk": row[24],
+            # "published": row[25],
+            # "published_date": row[26],
+            # "lawenforcement_doc": row[28],
+            # "pushed_to_mayan_signed": row[29],
+            # "date_pushed_to_mayan_signed": row[30],
+            # "file_types_children_bundles_id_fk": row[31],
+            # "activity_id": row[32],
+            # "files_batch_id": row[33],
+            # "file_types_children_id": row[34],
+            # "signed_order": row[35],
+        }
+        for row in results
+    ] if results else []
 
 
 

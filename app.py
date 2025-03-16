@@ -8,7 +8,7 @@ from untils import generate_mapping, display_case_summary, create_case_tabs
 st.set_page_config(page_title="Interactive Case Overview", page_icon=":bar_chart:", layout='wide')
 st.title("Interactive Case Overview")
 
-#st.write(get_case_activities(1697996))
+#st.write(get_activity_court_documents(1697996))
 
 # generate years from 2000 to the current year
 years = list(range(2000, datetime.now().year + 1))
