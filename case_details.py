@@ -55,7 +55,18 @@ def get_unit_divisions(unit_id: str):
 
 # function to getcase details
 def get_case_details(case_id: int):
-    return {"case_id": case_id, "details": f"Details for Case ID {case_id}"}
+
+    case_parties = get_case_parties(case_id)
+    case_details = get_case_details_by_id(case_id)
+    case_activities = get_case_activities(case_id)
+    court_documents = get_activity_court_documents(case_id)
+
+    return {
+        "case summary": case_details,
+        "case parties": case_parties,
+        "case activities": case_activities,
+        "court documents": court_documents,
+    }
 
 
 # function to getcase details case id
@@ -66,7 +77,7 @@ def get_case_details_by_id(case_id: int):
             cases.case_year, 
             cases.case_code, 
             cases.case_index, 
-            cases.number_on_file, 
+            cases.number_on_file , 
             cases.citation, 
             cases.filing_date, 
             case_status.case_status_desc, 
@@ -94,10 +105,10 @@ def get_case_details_by_id(case_id: int):
             "case_year": row[1], 
             "case_code": row[2], 
             "case_index": row[3],
-            "number_on_file": row[4],
+            "case_number": row[4],
             "citation": row[5],
             "filing_date": row[6],
-            "case_status_desc": row[7],
+            "case_status": row[7],
             "unit_name": row[8],
             "division_name": row[9],
             "case_type_name": row[10],
