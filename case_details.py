@@ -57,14 +57,21 @@ def get_unit_divisions(unit_id: str):
 def get_case_details(case_id: int):
     return {"case_id": case_id, "details": f"Details for Case ID {case_id}"}
 
+
 # function to getcase details case id
 def get_case_details_by_id(case_id: int):
     query = """
         SELECT 
-            cases.*, 
+            cases.case_id, 
+            cases.case_year, 
+            cases.case_code, 
+            cases.case_index, 
+            cases.number_on_file, 
+            cases.citation, 
+            cases.filing_date, 
+            case_status.case_status_desc, 
             unit.unit_name, 
             division.division_name, 
-            case_status.case_status_desc as case_status, 
             case_types.name AS case_type_name, 
             case_categories.name AS case_category, 
             case_categories.code
@@ -81,33 +88,37 @@ def get_case_details_by_id(case_id: int):
 
     results = execute_query(query, (case_id,))
 
-    return results[0] if results else None
+    return [
+        {
+            "case_id": row[0], 
+            "case_year": row[1], 
+            "case_code": row[2], 
+            "case_index": row[3],
+            "number_on_file": row[4],
+            "citation": row[5],
+            "filing_date": row[6],
+            "case_status_desc": row[7],
+            "unit_name": row[8],
+            "division_name": row[9],
+            "case_type_name": row[10],
+            "case_category": row[11],
+        } 
+        for row in results
+    ] if results else []
 
 
 # function to get case parties
 def get_case_parties(case_id: int):
     query = """
         SELECT 
-            user_accounts.uacc_suspend, 
-            user_accounts.uacc_active, 
-            user_accounts.uacc_id, 
-            user_accounts.uacc_email, 
-            cases.case_id, 
-            case_party.case_party_id, 
-            demo_user_profiles.prefered_name, 
-            demo_user_profiles.upro_first_name, 
+            user_groups.ugrp_name as user_category, 
+            CONCAT(case_party.level, ' ', case_party_types.description) AS party_type, 
+            demo_user_profiles.prefered_name AS party_name, 
             demo_user_profiles.nationality, 
-            demo_user_profiles.gender, 
             demo_user_profiles.upro_phone, 
-            user_groups.ugrp_name, 
-            case_party_types.description, 
-            case_party_types.case_party_type_id, 
-            case_party_types.innitiator, 
-            case_party.level, 
-            user_groups.ugrp_id, 
-            case_party.uacc_id_fk, 
-            case_party.entered_by_fk, 
-            COUNT(files.file_id) AS files_count
+            user_accounts.uacc_email, 
+            COUNT(files.file_id) AS files_count,
+            case_party_types.innitiator
         FROM case_party
         INNER JOIN cases ON case_party.case_id_fk = cases.case_id
         INNER JOIN unit_div_case_type ON unit_div_case_type.unit_div_case_type_id = cases.unit_div_case_type_id_fk
@@ -121,42 +132,44 @@ def get_case_parties(case_id: int):
         LEFT JOIN files ON files.party_id = case_party.case_party_id
         WHERE case_party.case_id_fk = %s
         GROUP BY 
-            user_accounts.uacc_suspend, 
-            user_accounts.uacc_id, 
-            user_accounts.uacc_email, 
-            cases.case_id, 
-            case_party.case_party_id, 
+            user_groups.ugrp_name, 
+            case_party.level, case_party_types.description,
             demo_user_profiles.prefered_name, 
-            demo_user_profiles.upro_first_name, 
             demo_user_profiles.nationality, 
             demo_user_profiles.gender, 
-            demo_user_profiles.upro_phone,  
-            user_groups.ugrp_name, 
-            case_party_types.description, 
-            case_party_types.innitiator, 
-            case_party.level, 
-            user_groups.ugrp_id, 
-            case_party_types.case_party_type_id, 
-            case_party.uacc_id_fk
+            demo_user_profiles.upro_phone, 
+            user_accounts.uacc_email, 
+            case_party_types.innitiator
         ORDER BY case_party_types.innitiator DESC;
     """
 
     results = execute_query(query, (case_id,))
     
-    return results if results else []
+    return [
+    {
+        "user_category": row[0], 
+        "party_type": row[1], 
+        "party_name": row[2], 
+        "nationality": row[3],
+        "upro_phone": row[4],
+        "uacc_email": row[5],
+        "files_count": row[6],
+    } 
+    for row in results
+   ] if results else []
+
 
 
 # function to get case activities by case id
 def get_case_activities(case_id: int):
     query = """
         SELECT 
-            case_activities.case_activity_id,
-            case_activities.activity_date, 
             court_actions.court_actions_name, 
+            case_activities.activity_date, 
             case_activities.remarks, 
-            court_actions.court_actions_id,
+            case_activity_outcome.outcome_remarks,
+            case_outcome_description,
             case_activities.activity_deleted,
-            case_type_outcome.case_outcome_id_fk, 
             mediation_referral.mediation_number, 
             mediation_referral.mediation_status, 
             mediation_referral.mediation_outcome
@@ -174,13 +187,12 @@ def get_case_activities(case_id: int):
         LEFT JOIN mediation_referral ON case_activities.case_activity_id = mediation_referral.case_activity_id_fk
         WHERE cases.case_id = %s
         GROUP BY 
-            case_activities.case_activity_id,
-            case_activities.activity_date, 
             court_actions.court_actions_name, 
+            case_activities.activity_date, 
             case_activities.remarks, 
-            court_actions.court_actions_id,
+            case_activity_outcome.outcome_remarks,
+            case_outcome_description,
             case_activities.activity_deleted,
-            case_type_outcome.case_outcome_id_fk, 
             mediation_referral.mediation_number, 
             mediation_referral.mediation_status, 
             mediation_referral.mediation_outcome
@@ -189,7 +201,16 @@ def get_case_activities(case_id: int):
 
     results = execute_query(query, (case_id,))
     
-    return results if results else []
+    return [
+    {
+        "court_actions_name": row[0], 
+        "activity_date": row[1], 
+        #"remarks": row[2], 
+        "outcome_remarks": row[3],
+        "case_outcome_description": row[4],
+    } 
+    for row in results
+   ] if results else []
 
 
 # function to get outcomes activity
