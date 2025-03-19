@@ -70,7 +70,7 @@ def get_case_details(case_id: int):
     }
     
 # format case details
-def clean_case_details_for_embedding(case_details):
+def clean_case_texts_for_embedding(case_details):
     cleaned_text = ""
 
     # clean case summary

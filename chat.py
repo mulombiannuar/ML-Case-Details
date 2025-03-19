@@ -70,7 +70,7 @@ if "search_results" in st.session_state and st.session_state.search_results is n
         st.success(f"Found Case Number {case_details_search['case_summary'][0]['case_number']} matching your criteria.")
 
         # get cleaned case text
-        cleaned_case_text = clean_case_details_for_embedding(case_details_search)
+        cleaned_case_text = clean_case_texts_for_embedding(case_details_search)
         
         # get the text chunks
         text_chunks = get_text_chunks(cleaned_case_text)
