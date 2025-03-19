@@ -74,7 +74,7 @@ def clean_case_details_for_embedding(case_details):
     cleaned_text = ""
 
     # clean case summary
-    cleaned_text += "Case Summary:\n"
+    cleaned_text += "Case Summary:\n\n"
     case_summary = case_details.get("case_summary", [{}])[0]
     cleaned_text += f"Case Number: {case_summary.get('case_number', 'N/A')}\n"
     cleaned_text += f"Case Year: {case_summary.get('case_year', 'N/A')}\n"
@@ -97,7 +97,7 @@ def clean_case_details_for_embedding(case_details):
     for activity in case_details.get("case_activities", []):
         cleaned_text += f"- {activity.get('activity_date', 'N/A')}: {activity.get('court_actions_name', 'N/A')} ({activity.get('case_outcome_description', 'N/A')})\n"
 
-    # clean court documents
+    # court documents
     cleaned_text += "\nCourt Documents:\n"
     for document in case_details.get("court_documents", []):
         document_text = document.get('document_text', 'N/A')
