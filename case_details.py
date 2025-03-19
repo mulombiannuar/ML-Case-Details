@@ -1,4 +1,5 @@
 from database import execute_query
+from bs4 import BeautifulSoup
 
 # function to get head stations
 def get_heads():
@@ -62,11 +63,53 @@ def get_case_details(case_id: int):
     court_documents = get_activity_court_documents(case_id)
 
     return {
-        "case summary": case_details,
-        "case parties": case_parties,
-        "case activities": case_activities,
-        "court documents": court_documents,
+        "case_summary": case_details,
+        "case_parties": case_parties,
+        "case_activities": case_activities,
+        "court_documents": court_documents,
     }
+    
+# format case details
+def clean_case_details_for_embedding(case_details):
+    cleaned_text = ""
+
+    # clean case summary
+    cleaned_text += "Case Summary:\n"
+    case_summary = case_details.get("case_summary", [{}])[0]
+    cleaned_text += f"Case Number: {case_summary.get('case_number', 'N/A')}\n"
+    cleaned_text += f"Case Year: {case_summary.get('case_year', 'N/A')}\n"
+    cleaned_text += f"Case Code: {case_summary.get('case_code', 'N/A')}\n"
+    cleaned_text += f"Citation: {case_summary.get('citation', 'N/A')}\n"
+    cleaned_text += f"Filing Date: {case_summary.get('filing_date', 'N/A')}\n"
+    cleaned_text += f"Status: {case_summary.get('case_status', 'N/A')}\n"
+    cleaned_text += f"Unit Name: {case_summary.get('unit_name', 'N/A')}\n"
+    cleaned_text += f"Division: {case_summary.get('division_name', 'N/A')}\n"
+    cleaned_text += f"Case Type: {case_summary.get('case_type_name', 'N/A')}\n"
+    cleaned_text += f"Category: {case_summary.get('case_category', 'N/A')}\n\n"
+
+    # clean case parties
+    cleaned_text += "Case Parties:\n"
+    for party in case_details.get("case_parties", []):
+        cleaned_text += f"- {party.get('party_type', 'N/A')}: {party.get('party_name', 'N/A')} ({party.get('user_category', 'N/A')})\n"
+
+    # clean case activities
+    cleaned_text += "\nCase Activities:\n"
+    for activity in case_details.get("case_activities", []):
+        cleaned_text += f"- {activity.get('activity_date', 'N/A')}: {activity.get('court_actions_name', 'N/A')} ({activity.get('case_outcome_description', 'N/A')})\n"
+
+    # clean court documents
+    cleaned_text += "\nCourt Documents:\n"
+    for document in case_details.get("court_documents", []):
+        document_text = document.get('document_text', 'N/A')
+        
+        # Remove HTML tags
+        if document_text != 'N/A':
+            document_text = BeautifulSoup(document_text, "html.parser").get_text(separator=" ")
+
+    cleaned_text += f"- {document.get('court_actions_name', 'N/A')} ({document.get('activity_date', 'N/A')})\n"
+    cleaned_text += f"  {document_text}\n\n"
+
+    return cleaned_text.strip()
 
 
 # function to getcase details case id
@@ -122,6 +165,7 @@ def get_case_details_by_id(case_id: int):
 def get_case_parties(case_id: int):
     query = """
         SELECT 
+            user_accounts.uacc_id,
             user_groups.ugrp_name as user_category, 
             CONCAT(case_party.level, ' ', case_party_types.description) AS party_type, 
             demo_user_profiles.prefered_name AS party_name, 
@@ -143,6 +187,7 @@ def get_case_parties(case_id: int):
         LEFT JOIN files ON files.party_id = case_party.case_party_id
         WHERE case_party.case_id_fk = %s
         GROUP BY 
+            user_accounts.uacc_id,
             user_groups.ugrp_name, 
             case_party.level, case_party_types.description,
             demo_user_profiles.prefered_name, 
@@ -158,13 +203,14 @@ def get_case_parties(case_id: int):
     
     return [
     {
-        "user_category": row[0], 
-        "party_type": row[1], 
-        "party_name": row[2], 
-        "nationality": row[3],
-        "upro_phone": row[4],
-        "uacc_email": row[5],
-        "files_count": row[6],
+        "uacc_id": row[0], 
+        "user_category": row[1], 
+        "party_type": row[2], 
+        "party_name": row[3], 
+        "nationality": row[4],
+        "upro_phone": row[5],
+        "uacc_email": row[6],
+        "files_count": row[7],
     } 
     for row in results
    ] if results else []
@@ -393,6 +439,8 @@ def get_activity_court_documents(case_id: int):
 
 #get case party documents filed
 def get_case_party_documents_filed(case_id: int, uacc_id: int):
+    """Retrieve PDFs related to a specific case party."""
+     
     query = """
         SELECT cases.case_id, case_party_types.description, demo_user_profiles.prefered_name, 
                file_types_children.description AS file_type_name, files.name AS document_file_name, 
