@@ -147,7 +147,7 @@ if "search_results" in st.session_state and st.session_state.search_results is n
             selected_case_id = case_mapping[selected_number]
             case_details = get_case_details_by_id(selected_case_id)
             st.divider()
-            st.subheader(f'Case Number : {case_details[0]["number_on_file"]}')
+            st.subheader(f'Case Number : {case_details[0]["case_number"]}')
             create_case_tabs(selected_case_id)
 
     else:

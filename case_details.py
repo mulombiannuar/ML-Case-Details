@@ -49,7 +49,7 @@ def get_unit_divisions(unit_id: str):
     """
     results = execute_query(query, (unit_id,))
 
-    return [{"unit_division_id": row[0], "division_name": row[1]} for row in results]
+    return [{"unit_division_id": row[0], "division_name": row[1]} for row in results] if results else []
 
 
 
@@ -391,5 +391,54 @@ def get_activity_court_documents(case_id: int):
     ] if results else []
 
 
+#get case party documents filed
+def get_case_party_documents_filed(case_id: int, uacc_id: int):
+    query = """
+        SELECT cases.case_id, case_party_types.description, demo_user_profiles.prefered_name, 
+               file_types_children.description AS file_type_name, files.name AS document_file_name, 
+               files.file_id, user_accounts.uacc_id, ugrp_id, uacc_username, internal_external, files_batch.*
+        FROM files_batch 
+        INNER JOIN files ON files.files_batch_id = files_batch.files_batch_id
+        INNER JOIN case_party ON case_party.case_party_id = files.party_id
+        INNER JOIN cases ON cases.case_id = case_party.case_id_fk 
+        INNER JOIN unit_div_case_type ON unit_div_case_type.unit_div_case_type_id = cases.unit_div_case_type_id_fk
+        INNER JOIN case_types ON unit_div_case_type.case_type_id_fk = case_types.case_type_id
+        INNER JOIN case_categories ON case_types.case_category_id_fk = case_categories.category_id
+        INNER JOIN demo_user_profiles ON case_party.uacc_id_fk = demo_user_profiles.upro_uacc_fk
+        INNER JOIN user_accounts ON demo_user_profiles.upro_uacc_fk = user_accounts.uacc_id
+        INNER JOIN user_groups ON user_groups.ugrp_id = user_accounts.uacc_group_fk
+        LEFT JOIN case_type_party_type ON case_type_party_type.case_type_party_type_id = case_party.case_party_type_id_fk
+        INNER JOIN case_party_types ON case_party.case_party_type_id_fk = case_party_types.case_party_type_id
+        INNER JOIN file_types_children_bundles ON file_types_children_bundles.file_types_children_bundles_id = files.file_types_children_bundles_id_fk
+        INNER JOIN file_types_children ON file_types_children.file_types_children_id = file_types_children_bundles.file_types_children_id_fk
+        WHERE files.name != 'N/A' 
+        AND cases.case_id = %s 
+        AND user_accounts.uacc_id = %s 
+        AND files_batch.incoming_outgoing != 2
+        GROUP BY cases.case_id, files_batch.files_batch_id, user_accounts.uacc_id, internal_external, ugrp_id, 
+                 case_party_types.description, demo_user_profiles.prefered_name, file_types_children.description, 
+                 files.name, files.file_id
+        ORDER BY files_batch.date_created DESC
+    """
+    
+    results = execute_query(query, (case_id, uacc_id))
 
+    return [
+        {
+            "case_id": row[0],
+            "case_party_type": row[1],
+            "prefered_name": row[2],
+            "file_type_name": row[3],
+            "document_file_name": row[4],
+            "file_id": row[5],
+            "uacc_id": row[6],
+            "ugrp_id": row[7],
+            "uacc_username": row[8],
+            "internal_external": row[9],
+            "files_batch": row[10:]  # Store remaining fields as files_batch details
+        }
+        for row in results
+    ] if results else []
+
+    
 
