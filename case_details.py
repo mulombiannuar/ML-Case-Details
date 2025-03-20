@@ -488,5 +488,33 @@ def get_case_party_documents_filed(case_id: int, uacc_id: int):
         for row in results
     ] if results else []
 
-    
 
+# save case document texts
+def save_case_document_texts(file_id: int, content: str):
+    """
+    Save document summary content into the case_document_summaries table.
+    Returns the inserted record ID if successful, otherwise None.
+    """
+    query = """
+        INSERT INTO case_document_summaries (file_id, content)
+        VALUES (%s, %s)
+        RETURNING id
+    """
+    params = (file_id, content)
+    result = execute_query(query, params, fetch_one=True)
+    
+    return result[0] if result else None  
+
+
+# get cade document texts
+def get_case_document_texts(file_id: int):
+    """Fetches the case document content for the given file_id."""
+    query = """
+        SELECT content 
+        FROM case_document_summaries 
+        WHERE file_id = %s
+    """
+    
+    result = execute_query(query, (file_id,))
+    
+    return result[0][0] if result else None

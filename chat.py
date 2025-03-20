@@ -48,8 +48,8 @@ def get_vectorstore(text_chunks):
 # function to get conversation chain
 def get_conversation_chain(vectorstore):
     # llm = ChatOpenAI()
-    # llm = ChatOllama(model="gemma3", temperature=0.5)
-    llm = HuggingFaceHub(repo_id="google/flan-t5-large", model_kwargs={"temperature":0.5, "max_length":512})
+    llm = ChatOllama(model="gemma3:1b", temperature=0.5)
+    #llm = HuggingFaceHub(repo_id="google/flan-t5-large", model_kwargs={"temperature":0.5, "max_length":512})
 
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True
