@@ -13,7 +13,8 @@ DB_CONFIG = {
 }
 
 
-def execute_query(query: str, params: tuple):
+def execute_fetch_query(query: str, params: tuple):
+    """Executes an SELECT query with given parameters."""
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
@@ -26,6 +27,26 @@ def execute_query(query: str, params: tuple):
     except psycopg2.Error as e:
         print("Database error:", e)
         return []
+
+    finally:
+        cursor.close()
+        conn.close()
+        
+
+def execute_insert_query(query: str, params: tuple):
+    """Executes an INSERT query with given parameters."""
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        
+        cursor.execute(query, params)
+        conn.commit()  # Commit changes to save data
+
+        return cursor.rowcount  # Return the number of rows inserted
+
+    except psycopg2.Error as e:
+        print("Database error:", e)
+        return 0  # Return 0 to indicate failure
 
     finally:
         cursor.close()

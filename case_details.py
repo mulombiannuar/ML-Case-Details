@@ -1,4 +1,4 @@
-from database import execute_query
+from database import execute_fetch_query, execute_insert_query
 from bs4 import BeautifulSoup
 
 # function to get head stations
@@ -10,7 +10,7 @@ def get_heads():
         WHERE head_id NOT IN (%s, %s, %s, %s)
         ORDER BY head_id
     """
-    results = execute_query(query, excluded_ids)
+    results = execute_fetch_query(query, excluded_ids)
 
     return [{"head_id": row[0], "head_name": row[1]} for row in results]
 
@@ -23,7 +23,7 @@ def get_head_stations(head_id: str):
         WHERE head_id_fk = %s 
         ORDER BY unit_name ASC;
     """
-    results = execute_query(query, (head_id,))
+    results = execute_fetch_query(query, (head_id,))
 
     return [{"unit_id": row[0], "unit_name": row[1]} for row in results]
 
@@ -35,7 +35,7 @@ def get_head_stations_by_station_id(head_id: str, station_id: str):
         FROM unit 
         WHERE head_id_fk = %s AND unit_id = %s;
     """
-    results = execute_query(query, (head_id, station_id))
+    results = execute_fetch_query(query, (head_id, station_id))
 
     return [{"unit_id": row[0], "unit_name": row[1]} for row in results]
 
@@ -48,7 +48,7 @@ def get_unit_divisions(unit_id: str):
         JOIN division d ON d.division_id = ud.division_id_fk
         WHERE ud.unit_id_fk = %s;
     """
-    results = execute_query(query, (unit_id,))
+    results = execute_fetch_query(query, (unit_id,))
 
     return [{"unit_division_id": row[0], "division_name": row[1]} for row in results] if results else []
 
@@ -61,12 +61,14 @@ def get_case_details(case_id: int):
     case_details = get_case_details_by_id(case_id)
     case_activities = get_case_activities(case_id)
     court_documents = get_activity_court_documents(case_id)
+    case_extracted_texts = get_case_document_saved_texts(case_id)
 
     return {
         "case_summary": case_details,
         "case_parties": case_parties,
         "case_activities": case_activities,
         "court_documents": court_documents,
+        "case_extracted_texts": case_extracted_texts,
     }
     
 # format case details
@@ -97,6 +99,22 @@ def clean_case_texts_for_embedding(case_details):
     for activity in case_details.get("case_activities", []):
         cleaned_text += f"- {activity.get('activity_date', 'N/A')}: {activity.get('court_actions_name', 'N/A')} ({activity.get('case_outcome_description', 'N/A')})\n"
 
+    # documents extracted texts
+    cleaned_text += "\nCase Documents Extracted Texts:\n\n"
+    for document in case_details.get("case_extracted_texts", []):
+        case_party_name = document.get('case_party_name', 'N/A')
+        case_party_type = document.get('case_party_type', 'N/A')
+        file_type_name = document.get('file_type_name', 'N/A')
+        date_document_filed = document.get('date_document_filed', 'N/A')
+        extracted_document_text = document.get('extracted_document_text', 'N/A')
+
+        cleaned_text += (
+            f"Case Party Name: {case_party_name} ({case_party_type}) \n\n"
+            f"File Type Name: {file_type_name} ({date_document_filed}): \n\n"
+            f"{extracted_document_text}\n\n"
+        )
+        
+        
     # court documents
     cleaned_text += "\nCourt Documents:\n"
     for document in case_details.get("court_documents", []):
@@ -140,7 +158,7 @@ def get_case_details_by_id(case_id: int):
         WHERE cases.case_id = %s;
     """
 
-    results = execute_query(query, (case_id,))
+    results = execute_fetch_query(query, (case_id,))
 
     return [
         {
@@ -199,7 +217,7 @@ def get_case_parties(case_id: int):
         ORDER BY case_party_types.innitiator DESC;
     """
 
-    results = execute_query(query, (case_id,))
+    results = execute_fetch_query(query, (case_id,))
     
     return [
     {
@@ -256,7 +274,7 @@ def get_case_activities(case_id: int):
         ORDER BY case_activities.activity_date DESC;
     """
 
-    results = execute_query(query, (case_id,))
+    results = execute_fetch_query(query, (case_id,))
     
     return [
     {
@@ -285,7 +303,7 @@ def get_activity_outcome(case_activity_id: int):
         WHERE case_activities.case_activity_id = %s
     """
 
-    results = execute_query(query, (case_activity_id,))
+    results = execute_fetch_query(query, (case_activity_id,))
     
     return results if results else []
 
@@ -304,7 +322,7 @@ def get_unit_division_case_categories(unit_division_id: int):
         ORDER BY case_categories.category_id ASC
     """
 
-    results = execute_query(query, (unit_division_id,))
+    results = execute_fetch_query(query, (unit_division_id,))
 
     return [{"category_id": row[0], "category_name": row[1]} for row in results] if results else []
 
@@ -337,7 +355,7 @@ def search_case_number(case_number, category_id, unit_division_id, case_year):
 
     # Corrected query execution using named parameters
     
-    results = execute_query(query, (unit_division_id, category_id, case_number, case_year)) 
+    results = execute_fetch_query(query, (unit_division_id, category_id, case_number, case_year)) 
     
     return [
         {
@@ -391,7 +409,7 @@ def get_activity_court_documents(case_id: int):
         ORDER BY file_id DESC;
     """
 
-    results = execute_query(query, (case_id,))
+    results = execute_fetch_query(query, (case_id,))
 
     return [
         {
@@ -436,6 +454,58 @@ def get_activity_court_documents(case_id: int):
         for row in results
     ] if results else []
 
+#get given case saved case documents texts
+def get_case_document_saved_texts(case_id: int):
+    """ Retrieve the text content of a given case document. """
+    
+    query = """
+        SELECT 
+            cases.case_id, 
+            file_types_children.description AS file_type_name, 
+            case_document_extracted_texts.content AS extracted_document_text,
+            case_party_types.description, 
+            demo_user_profiles.prefered_name, 
+            files_batch.date_created as date_document_filed
+        FROM case_document_extracted_texts 
+        INNER JOIN files ON files.file_id = case_document_extracted_texts.file_id
+        INNER JOIN files_batch ON files_batch.files_batch_id = files.files_batch_id
+        INNER JOIN file_types_children_bundles ON file_types_children_bundles.file_types_children_bundles_id = files.file_types_children_bundles_id_fk
+        INNER JOIN file_types_children ON file_types_children.file_types_children_id = file_types_children_bundles.file_types_children_id_fk
+        INNER JOIN case_party ON case_party.case_party_id = files.party_id
+        INNER JOIN cases ON cases.case_id = case_party.case_id_fk 
+        INNER JOIN unit_div_case_type ON unit_div_case_type.unit_div_case_type_id = cases.unit_div_case_type_id_fk
+        INNER JOIN case_types ON unit_div_case_type.case_type_id_fk = case_types.case_type_id
+        INNER JOIN case_categories ON case_types.case_category_id_fk = case_categories.category_id
+        INNER JOIN demo_user_profiles ON case_party.uacc_id_fk = demo_user_profiles.upro_uacc_fk
+        INNER JOIN user_accounts ON demo_user_profiles.upro_uacc_fk = user_accounts.uacc_id
+        INNER JOIN user_groups ON user_groups.ugrp_id = user_accounts.uacc_group_fk
+        LEFT JOIN case_type_party_type ON case_type_party_type.case_type_party_type_id = case_party.case_party_type_id_fk
+        INNER JOIN case_party_types ON case_party.case_party_type_id_fk = case_party_types.case_party_type_id
+        WHERE cases.case_id = %s 
+        GROUP BY 
+            cases.case_id, 
+            file_types_children.description, 
+            case_document_extracted_texts.contenT,
+            case_party_types.description, 
+            demo_user_profiles.prefered_name, 
+            files_batch.date_created
+        ORDER BY files_batch.date_created DESC
+    """
+    results = execute_fetch_query(query, (case_id,))
+
+    return [
+        {
+            #"case_id": row[0],
+            "file_type_name": row[1],
+            "case_party_type": row[3],
+            "case_party_name": row[4],
+            "date_document_filed": row[5],
+            "extracted_document_text": row[2],
+        }
+        for row in results
+    ] if results else []
+
+
 
 #get case party documents filed
 def get_case_party_documents_filed(case_id: int, uacc_id: int):
@@ -469,7 +539,7 @@ def get_case_party_documents_filed(case_id: int, uacc_id: int):
         ORDER BY files_batch.date_created DESC
     """
     
-    results = execute_query(query, (case_id, uacc_id))
+    results = execute_fetch_query(query, (case_id, uacc_id))
 
     return [
         {
@@ -490,31 +560,31 @@ def get_case_party_documents_filed(case_id: int, uacc_id: int):
 
 
 # save case document texts
-def save_case_document_texts(file_id: int, content: str):
+def save_case_document_texts(file_id, content: str):
     """
     Save document summary content into the case_document_summaries table.
     Returns the inserted record ID if successful, otherwise None.
     """
     query = """
-        INSERT INTO case_document_summaries (file_id, content)
+        INSERT INTO case_document_extracted_texts (file_id, content)
         VALUES (%s, %s)
         RETURNING id
     """
     params = (file_id, content)
-    result = execute_query(query, params, fetch_one=True)
+    result = execute_insert_query(query, params)
     
     return result[0] if result else None  
 
 
 # get cade document texts
-def get_case_document_texts(file_id: int):
+def get_case_document_file_texts(file_id):
     """Fetches the case document content for the given file_id."""
     query = """
         SELECT content 
-        FROM case_document_summaries 
+        FROM case_document_extracted_texts 
         WHERE file_id = %s
     """
     
-    result = execute_query(query, (file_id,))
+    result = execute_fetch_query(query, (file_id,))
     
     return result[0][0] if result else None

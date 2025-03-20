@@ -2,15 +2,15 @@ import streamlit as st
 from case_details import *
 from dotenv import load_dotenv
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings, HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from html_templates import css, bot_template, user_template
-from langchain.llms import HuggingFaceHub
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_models import ChatOllama
+#from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings, HuggingFaceEmbeddings
+#from langchain.chat_models import ChatOpenAI
+#from langchain.llms import HuggingFaceHub
 
 load_dotenv()
  
